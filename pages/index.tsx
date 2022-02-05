@@ -31,6 +31,10 @@ const Home: NextPage = () => {
       <main className={styles.main}>
         <h1>The Price of GHST</h1>
 
+        <a href="https://github.com/aavegotchi/ghst-price" target="_blank">
+          View Source
+        </a>
+
         {loading && (
           <h2>
             <strong>Loading...</strong>
@@ -73,6 +77,12 @@ const Home: NextPage = () => {
 
       <style jsx>
         {`
+          a {
+            font-size: 24px;
+            color: white;
+            text-decoration: underline;
+            margin-bottom: 15px;
+          }
           h1 {
             color: white;
             font-size: 64px;
