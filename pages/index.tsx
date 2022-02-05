@@ -23,7 +23,7 @@ const Home: NextPage = () => {
   return (
     <div className={styles.container}>
       <Head>
-        <title>GHST Price</title>
+        <title>GHST Token Price</title>
         <meta name="GHST Token Price" content="GHST Token Price" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
