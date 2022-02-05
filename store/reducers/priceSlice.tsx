@@ -4,12 +4,14 @@ export interface PriceState {
   price: number;
   supply: number;
   supplyNoVirtual: number;
+  loading: boolean;
 }
 
 const initialState: PriceState = {
   price: 0,
   supply: 0,
   supplyNoVirtual: 0,
+  loading: true,
 };
 
 export const priceSlice = createSlice({
@@ -25,9 +27,13 @@ export const priceSlice = createSlice({
     setSupplyNoVirtual: (state, action: PayloadAction<number>) => {
       state.supplyNoVirtual = action.payload;
     },
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.loading = action.payload;
+    },
   },
 });
 
-export const { setPrice, setSupply, setSupplyNoVirtual } = priceSlice.actions;
+export const { setPrice, setSupply, setSupplyNoVirtual, setLoading } =
+  priceSlice.actions;
 
 export default priceSlice.reducer;

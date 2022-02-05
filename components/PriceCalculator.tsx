@@ -6,6 +6,7 @@ import ATokenABI from "../web3/abi/ATokenABI.json";
 import BancorMarketMakerABI from "../web3/abi/BatchedBancorMarketMaker.json";
 import { mainnetVars } from "../web3/constants";
 import {
+  setLoading,
   setPrice,
   setSupply,
   setSupplyNoVirtual,
@@ -123,6 +124,7 @@ const PriceCalculator = (): null => {
       dispatch(setPrice(Number(price) / PPM));
       dispatch(setSupply(Number(formatEther(finalTotalSupply))));
       dispatch(setSupplyNoVirtual(Number(formatEther(finalDisplaySupply))));
+      dispatch(setLoading(false));
     } catch (error) {
       console.log("error:", error);
     }

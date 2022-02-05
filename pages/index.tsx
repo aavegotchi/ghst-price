@@ -1,8 +1,9 @@
 import type { NextPage } from "next";
 import Head from "next/head";
+import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import PriceCalculator from "../components/PriceCalculator";
-import { setPrice } from "../store/reducers/priceSlice";
+import { setLoading, setPrice } from "../store/reducers/priceSlice";
 import { RootState } from "../store/store";
 import styles from "../styles/Home.module.css";
 
@@ -11,11 +12,12 @@ const Home: NextPage = () => {
   const currentSupply = useSelector(
     (state: RootState) => state.price.supplyNoVirtual
   );
+  const loading = useSelector((state: RootState) => state.price.loading);
   const totalSupply = useSelector((state: RootState) => state.price.supply);
   const dispatch = useDispatch();
 
-  function numberWithCommas(x?: number | string): string {
-    return Number(x).toLocaleString("en");
+  function numberWithCommas(x: number): string {
+    return x.toLocaleString("en", { maximumFractionDigits: 0 });
   }
 
   return (
@@ -27,24 +29,42 @@ const Home: NextPage = () => {
       </Head>
 
       <main className={styles.main}>
-        <h2 className={styles.title}>
-          <strong>Current Price: </strong>
-          {currentPrice.toFixed(3)} DAI / GHST
-        </h2>
+        <h1>The Price of GHST</h1>
 
-        <h2 className={styles.title}>
-          <strong>Current Supply (w/ Virtual Supply):</strong>{" "}
-          {numberWithCommas(totalSupply)} GHST
-        </h2>
+        {loading && (
+          <h2>
+            <strong>Loading...</strong>
+          </h2>
+        )}
 
-        <h2 className={styles.title}>
-          <strong>Current Supply:</strong> {numberWithCommas(currentSupply)}{" "}
-          GHST
-        </h2>
+        {!loading && (
+          <>
+            <h2 className={styles.title}>
+              <strong>Current Price: </strong>
+              {currentPrice.toFixed(3)} DAI / GHST
+            </h2>
 
-        <button className={styles.button} onClick={() => dispatch(setPrice(0))}>
-          Refresh
-        </button>
+            <h2 className={styles.title}>
+              <strong>Current Supply (w/ Virtual Supply):</strong>{" "}
+              {numberWithCommas(totalSupply)} GHST
+            </h2>
+
+            <h2 className={styles.title}>
+              <strong>Current Supply:</strong> {numberWithCommas(currentSupply)}{" "}
+              GHST
+            </h2>
+
+            <button
+              className={styles.button}
+              onClick={() => {
+                dispatch(setPrice(0));
+                dispatch(setLoading(true));
+              }}
+            >
+              Refresh
+            </button>
+          </>
+        )}
 
         <PriceCalculator />
       </main>
@@ -53,6 +73,10 @@ const Home: NextPage = () => {
 
       <style jsx>
         {`
+          h1 {
+            color: white;
+            font-size: 64px;
+          }
           h2 {
             font-size: 48px;
             text-align: left;
