@@ -33,7 +33,7 @@ const Home: NextPage = () => {
 
         <a
           href="https://github.com/aavegotchi/ghst-price"
-          rel="_noreferrer"
+          rel="noreferrer"
           target="_blank"
         >
           View Source
