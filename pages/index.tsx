@@ -31,7 +31,11 @@ const Home: NextPage = () => {
       <main className={styles.main}>
         <h1>The Price of GHST</h1>
 
-        <a href="https://github.com/aavegotchi/ghst-price" target="_blank">
+        <a
+          href="https://github.com/aavegotchi/ghst-price"
+          rel="_noreferrer"
+          target="_blank"
+        >
           View Source
         </a>
 
