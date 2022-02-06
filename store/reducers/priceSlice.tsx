@@ -11,7 +11,7 @@ const initialState: PriceState = {
   price: 0,
   supply: 0,
   supplyNoVirtual: 0,
-  loading: true,
+  loading: false,
 };
 
 export const priceSlice = createSlice({

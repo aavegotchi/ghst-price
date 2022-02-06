@@ -1,13 +1,24 @@
-import type { NextPage } from "next";
+import type { GetServerSideProps } from "next";
 import Head from "next/head";
-import { useState } from "react";
+import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import PriceCalculator from "../components/PriceCalculator";
-import { setLoading, setPrice } from "../store/reducers/priceSlice";
+import { PriceCalculator } from "../components/PriceCalculator";
+import {
+  setLoading,
+  setPrice,
+  setSupply,
+  setSupplyNoVirtual,
+} from "../store/reducers/priceSlice";
 import { RootState } from "../store/store";
 import styles from "../styles/Home.module.css";
-
-const Home: NextPage = () => {
+interface PriceData {
+  data: {
+    price: number;
+    finalTotalSupply: number;
+    finalDisplaySupply: number;
+  };
+}
+const Home = ({ data }: PriceData) => {
   const currentPrice = useSelector((state: RootState) => state.price.price);
   const currentSupply = useSelector(
     (state: RootState) => state.price.supplyNoVirtual
@@ -19,6 +30,28 @@ const Home: NextPage = () => {
   function numberWithCommas(x: number): string {
     return x.toLocaleString("en", { maximumFractionDigits: 0 });
   }
+
+  useEffect(() => {
+    dispatch(setPrice(data.price));
+    dispatch(setSupply(data.finalTotalSupply));
+    dispatch(setSupplyNoVirtual(data.finalDisplaySupply));
+  }, []);
+
+  const getLatestData = () => {
+    dispatch(setLoading(true));
+    PriceCalculator().then((result) => {
+      dispatch(setPrice(result.data.price));
+      dispatch(setSupply(result.data.finalTotalSupply));
+      dispatch(setSupplyNoVirtual(result.data.finalDisplaySupply));
+      dispatch(setLoading(false));
+    });
+
+    console.log("data", {
+      currentPrice: currentPrice.toFixed(3),
+      currentSupply: numberWithCommas(currentSupply),
+      totalSupply: numberWithCommas(totalSupply),
+    });
+  };
 
   return (
     <div className={styles.container}>
@@ -65,16 +98,13 @@ const Home: NextPage = () => {
             <button
               className={styles.button}
               onClick={() => {
-                dispatch(setPrice(0));
-                dispatch(setLoading(true));
+                getLatestData();
               }}
             >
               Refresh
             </button>
           </>
         )}
-
-        <PriceCalculator />
       </main>
 
       <footer className={styles.footer}></footer>
@@ -104,4 +134,8 @@ const Home: NextPage = () => {
   );
 };
 
+export const getServerSideProps: GetServerSideProps = async () => {
+  const data: PriceData = await PriceCalculator();
+  return { props: data };
+};
 export default Home;
