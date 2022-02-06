@@ -1,135 +1,95 @@
-import { useEffect } from "react";
 import { BigNumber, Contract, providers } from "ethers";
 import { formatEther } from "ethers/lib/utils";
 import { abi as fundraisingAbi } from "../web3/abi/AragonFundraisingController";
 import ATokenABI from "../web3/abi/ATokenABI.json";
 import BancorMarketMakerABI from "../web3/abi/BatchedBancorMarketMaker.json";
 import { mainnetVars } from "../web3/constants";
-import {
-  setLoading,
-  setPrice,
-  setSupply,
-  setSupplyNoVirtual,
-} from "../store/reducers/priceSlice";
-import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "../store/store";
 
-const PriceCalculator = (): null => {
-  const currentPrice = useSelector((state: RootState) => state.price.price);
+export async function PriceCalculator() {
+  const provider = new providers.StaticJsonRpcProvider();
 
-  const dispatch = useDispatch();
+  //Instantiate all the contracts
+  if (!mainnetVars.bancorMM)
+    throw "Bancor address doesn't exist for given network";
 
-  const provider = new providers.StaticJsonRpcProvider(
-    process.env.INFURA_PROVIDER_URL
+  const BatchedBancorMarketMaker = new Contract(
+    mainnetVars.bancorMM,
+    BancorMarketMakerABI,
+    provider
   );
 
-  //Initial load
-  useEffect(() => {
-    loadVars();
-  }, [currentPrice]);
+  const BondedToken = new Contract(
+    mainnetVars.ghstAddress,
+    ATokenABI,
+    provider
+  );
 
-  async function loadVars() {
-    try {
-      //Instantiate all the contracts
-      if (!mainnetVars.bancorMM)
-        throw "Bancor address doesn't exist for given network";
+  if (!mainnetVars.daiAddress)
+    throw "Dai address doesn't exist for given network";
 
-      const BatchedBancorMarketMaker = new Contract(
-        mainnetVars.bancorMM,
-        BancorMarketMakerABI,
-        provider
-      );
+  if (!mainnetVars.fundraising)
+    throw "Fundraising address doesn't exist for given network";
 
-      const BondedToken = new Contract(
-        mainnetVars.ghstAddress,
-        ATokenABI,
-        provider
-      );
+  const AF = new Contract(mainnetVars.fundraising, fundraisingAbi, provider);
 
-      if (!mainnetVars.daiAddress)
-        throw "Dai address doesn't exist for given network";
+  const collateralFilter =
+    BatchedBancorMarketMaker.filters.AddCollateralToken();
+  const collaterals = await BatchedBancorMarketMaker.queryFilter(
+    collateralFilter
+  );
 
-      if (!mainnetVars.fundraising)
-        throw "Fundraising address doesn't exist for given network";
+  //The formula for calculating price can be found here:
+  //https://github.com/AragonBlack/fundraising/tree/master/apps/aragon-fundraising/app
 
-      const AF = new Contract(
-        mainnetVars.fundraising,
-        fundraisingAbi,
-        provider
-      );
+  const daiReserveRatio = BigNumber.from(collaterals[0].args?.reserveRatio);
 
-      const collateralFilter =
-        BatchedBancorMarketMaker.filters.AddCollateralToken();
-      const collaterals = await BatchedBancorMarketMaker.queryFilter(
-        collateralFilter
-      );
+  //Virtual Supply and Virtual Balance are *not* displayed on the UI, but were added in to total supply because the price of GHST was 0.1 DAI during presale, but launched on the bonding curve at 0.2 DAI. Therefore, they must be included in total supply to accurately calculate the price.
+  const virtualSupply = BigNumber.from(collaterals[0].args?.virtualSupply);
+  const virtualBalance = BigNumber.from(collaterals[0].args?.virtualBalance);
 
-      //The formula for calculating price can be found here:
-      //https://github.com/AragonBlack/fundraising/tree/master/apps/aragon-fundraising/app
+  //Calculate total supply
+  const totalSupply = BigNumber.from(await BondedToken.totalSupply());
 
-      const daiReserveRatio = BigNumber.from(collaterals[0].args?.reserveRatio);
+  //Tokens to be minted are those tokens that have been purchased, but not claimed from the bonding curve yet.
+  const tokensToBeMinted = BigNumber.from(
+    await BatchedBancorMarketMaker.tokensToBeMinted()
+  );
 
-      //Virtual Supply and Virtual Balance are *not* displayed on the UI, but were added in to total supply because the price of GHST was 0.1 DAI during presale, but launched on the bonding curve at 0.2 DAI. Therefore, they must be included in total supply to accurately calculate the price.
-      const virtualSupply = BigNumber.from(collaterals[0].args?.virtualSupply);
-      const virtualBalance = BigNumber.from(
-        collaterals[0].args?.virtualBalance
-      );
+  const finalTotalSupply = totalSupply.add(tokensToBeMinted).add(virtualSupply);
 
-      //Calculate total supply
-      const totalSupply = BigNumber.from(await BondedToken.totalSupply());
+  //Display supply does not include virtual supply.
+  const finalDisplaySupply = totalSupply.add(tokensToBeMinted);
 
-      //Tokens to be minted are those tokens that have been purchased, but not claimed from the bonding curve yet.
-      const tokensToBeMinted = BigNumber.from(
-        await BatchedBancorMarketMaker.tokensToBeMinted()
-      );
+  //Calculate balance of reserve
+  const reserveAddress = await BatchedBancorMarketMaker.reserve();
+  const collateralsToBeClaimed = BigNumber.from(
+    await BatchedBancorMarketMaker.collateralsToBeClaimed(
+      mainnetVars.daiAddress
+    )
+  );
 
-      const finalTotalSupply = totalSupply
-        .add(tokensToBeMinted)
-        .add(virtualSupply);
+  const balanceOf = BigNumber.from(
+    await AF.balanceOf(reserveAddress, mainnetVars.daiAddress)
+  );
 
-      //Display supply does not include virtual supply.
-      const finalDisplaySupply = totalSupply.add(tokensToBeMinted);
+  const finalReserveBalance = balanceOf
+    .add(virtualBalance)
+    .sub(collateralsToBeClaimed);
 
-      //Calculate balance of reserve
-      const reserveAddress = await BatchedBancorMarketMaker.reserve();
-      const collateralsToBeClaimed = BigNumber.from(
-        await BatchedBancorMarketMaker.collateralsToBeClaimed(
-          mainnetVars.daiAddress
-        )
-      );
+  //Get PPM
+  const PPM = 1000000;
+  // Price
+  const price = BigNumber.from(PPM)
+    .mul(BigNumber.from(PPM))
+    .mul(finalReserveBalance)
+    .div(finalTotalSupply.mul(daiReserveRatio));
 
-      const balanceOf = BigNumber.from(
-        await AF.balanceOf(reserveAddress, mainnetVars.daiAddress)
-      );
-
-      const finalReserveBalance = balanceOf
-        .add(virtualBalance)
-        .sub(collateralsToBeClaimed);
-
-      //Get PPM
-      const PPM = 1000000;
-      // Price
-      const price = BigNumber.from(PPM)
-        .mul(BigNumber.from(PPM))
-        .mul(finalReserveBalance)
-        .div(finalTotalSupply.mul(daiReserveRatio));
-      console.log("Price", {
-        price: {
-          BigNumber: price,
-        },
-        finalTotalSupply: {
-          BigNumber: finalTotalSupply,
-        },
-      });
-      dispatch(setPrice(Number(price) / PPM));
-      dispatch(setSupply(Number(formatEther(finalTotalSupply))));
-      dispatch(setSupplyNoVirtual(Number(formatEther(finalDisplaySupply))));
-      dispatch(setLoading(false));
-    } catch (error) {
-      console.log("error:", error);
-    }
-  }
-
-  return null;
-};
+  return {
+    data: {
+      price: Number(price) / PPM,
+      finalTotalSupply: Number(formatEther(finalTotalSupply)),
+      finalDisplaySupply: Number(formatEther(finalDisplaySupply)),
+    },
+  };
+}
 export default PriceCalculator;
