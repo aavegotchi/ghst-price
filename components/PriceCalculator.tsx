@@ -6,7 +6,9 @@ import BancorMarketMakerABI from "../web3/abi/BatchedBancorMarketMaker.json";
 import { mainnetVars } from "../web3/constants";
 
 export async function PriceCalculator() {
-  const provider = new providers.StaticJsonRpcProvider();
+  const provider = new providers.StaticJsonRpcProvider(
+    process.env.INFURA_PROVIDER_URL
+  );
 
   //Instantiate all the contracts
   if (!mainnetVars.bancorMM)
